@@ -1,6 +1,6 @@
 // What the tests share: a client on the fake API, a fake clock and temporary folders.
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, afterEach } from 'node:test';
@@ -51,9 +51,13 @@ after(() => {
   for (const folder of folders) rmSync(folder, { recursive: true, force: true });
 });
 
-/** A new empty folder, deleted after the tests. */
+/**
+ * A new empty folder, deleted after the tests. Given by its real path: on macOS the temporary
+ * folder is behind a symlink (/var is /private/var), and process.cwd() inside it gives the real
+ * path, so a path built from the unresolved name would not match what the client saves to.
+ */
 export function tempDir(): string {
-  const folder = mkdtempSync(join(tmpdir(), 'converter-studio-test-'));
+  const folder = realpathSync(mkdtempSync(join(tmpdir(), 'converter-studio-test-')));
   folders.push(folder);
   return folder;
 }
