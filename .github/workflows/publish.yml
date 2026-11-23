@@ -1,0 +1,123 @@
+# Publishes the package to npm (`converter-studio`) and to JSR
+# (`@converterstudio/converter-studio`) on every version tag push, both with provenance:
+# anyone can verify that a release was built by this workflow, from this repository and commit.
+#
+# ─── ONE-TIME SETUP ────────────────────────────────────────────────────────────
+#
+# npm, first publish (a trusted publisher can only be added once the package exists):
+#   1. On npmjs.com: Access Tokens → Generate New Token → Granular Access Token,
+#      "Read and write", short expiry.
+#   2. Here: Settings → Secrets and variables → Actions → New repository secret
+#      NPM_TOKEN, with the token as its value.
+# npm, later publishes (OIDC trusted publishing, no long-lived secret):
+#   1. On npmjs.com, the package's Settings → Trusted Publisher → GitHub Actions:
+#        Organization or user: tariksucu
+#        Repository:           converter-studio-js
+#        Workflow filename:    publish.yml
+#        Environment:          (leave blank)
+#   2. Delete the NPM_TOKEN secret here and revoke the token on npm.
+# Both ways publish with provenance (trusted publishing adds it by itself).
+#
+# JSR (no secret at all: GitHub's OIDC token):
+#   1. On jsr.io: create the scope @converterstudio and the package converter-studio in it.
+#   2. In the package's settings on jsr.io: link this GitHub repository
+#      (tariksucu/converter-studio-js).
+#
+# ─── TAG CONVENTION ────────────────────────────────────────────────────────────
+#
+# Tags matching "*.*.*" start this workflow (1.0.0; v1.0.0 works too). The tag, without a
+# leading "v", must equal the version in package.json and jsr.json.
+#
+# ─── RELEASE PROCESS ───────────────────────────────────────────────────────────
+#
+# Change the version in package.json, jsr.json, src/version.ts and CHANGELOG.md, commit, then:
+#
+#   git tag X.Y.Z && git push origin main X.Y.Z
+
+name: Publish
+
+on:
+  push:
+    tags:
+      # Matches 1.0.0, 1.2.3, 2.0.0-rc.1, etc.
+      - '*.*.*'
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Required to mint an OIDC token for npm provenance and trusted publishing.
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Use npm 11.5.1 or newer (trusted publishing)
+        run: 'npm install --global npm@^12.2.0'
+
+      - name: Check that the tag is the package version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          jsr="$(node -p "require('./jsr.json').version")"
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ] || [ "$jsr" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME, package.json $version and jsr.json $jsr differ"
+            exit 1
+          fi
+
+      # Dependencies' install scripts are not needed, and none runs in a job that can publish.
+      - name: Install dependencies
+        run: 'npm ci --ignore-scripts'
+
+      - name: Lint and test
+        run: |
+          npm run lint
+          npm test
+
+      - name: Publish
+        # `npm publish` builds the package first (prepack). With the NPM_TOKEN secret set (first
+        # publish), the token is written to the user's .npmrc; without it, npm uses the OIDC
+        # exchange of a trusted publisher.
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          fi
+          npm publish --provenance --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  jsr:
+    name: Publish to JSR
+    needs: npm
+    runs-on: ubuntu-latest
+
+    permissions:
+      # JSR authenticates this repository with GitHub's OIDC token and records provenance.
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Publish
+        run: 'deno publish'
