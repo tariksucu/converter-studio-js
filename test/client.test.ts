@@ -46,7 +46,7 @@ describe('requests', () => {
       assert.equal(request.headers.get('x-converter-studio-client'), `node/${VERSION}`);
       assert.match(
         request.headers.get('user-agent') ?? '',
-        /^converter-studio-node\/1\.0\.0 (node|deno|bun)\//,
+        new RegExp(`^converter-studio-node/${VERSION.replaceAll('.', '\\.')} (node|deno|bun)/`),
       );
       const api_ =
         request.url.pathname.startsWith('/api/v1/') && !request.url.search.includes('token');

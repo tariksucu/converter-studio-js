@@ -1,6 +1,6 @@
 {
   "name": "converter-studio",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Official JavaScript and TypeScript client and command-line tool for the Converter Studio API: convert HEIC, RAW, video, audio, documents and e-books from Node.js, Deno, Bun or a browser.",
   "keywords": [
     "converter-studio",

@@ -275,6 +275,15 @@ own site, call Converter Studio from your server, where the key stays secret.
 
 The package installs `converter-studio` (`npx converter-studio` without installing):
 
+> **Two commands are named `converter-studio`.** This package's command uploads every file to
+> converter.studio and converts it there, with your API key and credits. The command that
+> [Converter Studio for desktop](https://converter.studio/download) installs converts on your
+> computer and uses the cloud only with `--cloud`. If you have both, the one that comes first on
+> your `PATH` runs; `converter-studio --help` tells them apart (the desktop app's begins with
+> "Convert files on this computer"). `npx converter-studio` always runs this package's command.
+> To run the desktop app's, call it by its full path: `which -a converter-studio` (macOS, Linux)
+> or `where.exe converter-studio` (Windows) lists every one, first one first.
+
 ```console
 $ converter-studio convert talk.mov --to mp4 -O height=720 -O quality=balanced
 [1/1] talk.mov -> mp4
